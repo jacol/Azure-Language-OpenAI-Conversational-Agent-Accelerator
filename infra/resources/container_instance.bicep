@@ -51,7 +51,7 @@ param agents_project_endpoint string
 param router_type string = 'TRIAGE_AGENT'
 param image string = 'mcr.microsoft.com/azure-cli:cbl-mariner2.0'
 param port int = 80
-param repository string = 'https://github.com/annabelng/Azure-Language-OpenAI-Conversational-Agent-Accelerator' // TODO
+param repository string = 'https://github.com/Azure-Samples/Azure-Language-OpenAI-Conversational-Agent-Accelerator' // TODO
 
 // Managed Identity:
 @description('Name of managed identity to use for Container Apps.')
