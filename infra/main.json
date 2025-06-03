@@ -1073,10 +1073,6 @@
                           "value": "[string(parameters('embedding_model_dimensions'))]"
                         },
                         {
-                          "name": "SHOULD_DELETE_OLD_AGENTS",
-                          "value": "false"
-                        },
-                        {
                           "name": "STORAGE_ACCOUNT_NAME",
                           "value": "[parameters('storage_account_name')]"
                         },

@@ -1,5 +1,4 @@
 azure-identity
 azure-ai-language-conversations
 azure-ai-language-questionanswering
-PyYAML
 azure-ai-agents

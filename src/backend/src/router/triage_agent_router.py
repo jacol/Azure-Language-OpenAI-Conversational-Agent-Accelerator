@@ -37,14 +37,6 @@ def create_triage_agent_router() -> Callable[[str, str, str], dict]:
         """
         Triage agent router function.
         """
-        if PII_ENABLED:
-            # Redact PII:
-            message = pii_redacter.redact(
-                text=utterance,
-                id=id,
-                language=language,
-                cache=True
-            )
 
         # Create thread for communication
         thread = agents_client.threads.create()
@@ -61,16 +53,17 @@ def create_triage_agent_router() -> Callable[[str, str, str], dict]:
         run = agents_client.runs.create_and_process(thread_id=thread.id, agent_id=agent.id)
         print(f"Run finished with status: {run.status}")
         
-        message = agents_client.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content="Where is my order?",
-        )
-        print(f"Created message: {message['id']}")
+        # commenting for now to see if it breaks conversation logic 
+        # message = agents_client.messages.create(
+        #     thread_id=thread.id,
+        #     role="user",
+        #     content="Where is my order?",
+        # )
+        # print(f"Created message: {message['id']}")
 
-        # Create and process an Agent run in thread with tools
-        run = agents_client.runs.create_and_process(thread_id=thread.id, agent_id=agent.id)
-        print(f"Run finished with status: {run.status}")
+        # # Create and process an Agent run in thread with tools
+        # run = agents_client.runs.create_and_process(thread_id=thread.id, agent_id=agent.id)
+        # print(f"Run finished with status: {run.status}")
 
         if run.status == "failed":
             print(f"Run failed: {run.last_error}")

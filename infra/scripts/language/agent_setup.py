@@ -1,6 +1,5 @@
 import json
 import os
-import yaml
 from azure.ai.agents import AgentsClient
 from azure.ai.agents.models import OpenApiTool, OpenApiManagedAuthDetails,OpenApiManagedSecurityScheme
 from azure.identity import DefaultAzureCredential
@@ -70,12 +69,8 @@ with agents_client:
 
     instructions = bind_parameters(instructions, config)
 
-    print(f"agents_endpoint: {project_endpoint}")
-    print(f"model_name: {model_name}")
-    print(f"AZURE_ENV_GPT_MODEL_NAME: {os.environ.get('AZURE_ENV_GPT_MODEL_NAME')}")
-
     # Flag to determine if old agents should be deleted
-    SHOULD_DELETE_OLD_AGENTS = os.environ.get("SHOULD_DELETE_OLD_AGENTS")
+    SHOULD_DELETE_OLD_AGENTS = os.environ.get("SHOULD_DELETE_OLD_AGENTS", "false").lower() == "true"
 
     if SHOULD_DELETE_OLD_AGENTS:
         # List all existing agents
