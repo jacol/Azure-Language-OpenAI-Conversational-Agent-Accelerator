@@ -31,7 +31,7 @@ echo "Running Orchestration setup..."
 python3 orchestration_setup.py
 echo "Running agent setup..."
 TRIAGE_AGENT_ID=$(python3 agent_setup.py | tail -n1)
-echo "Captured TRIAGE_AGENT_ID: $TRIAGE_AGENT_ID"
+echo "TRIAGE_AGENT_ID: $TRIAGE_AGENT_ID"
 export TRIAGE_AGENT_ID
 
 # Cleanup:
