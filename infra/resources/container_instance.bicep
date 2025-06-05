@@ -39,7 +39,7 @@ param search_index_name string = 'conv-assistant-manuals-idx'
 // Agents:
 param agents_project_endpoint string
 param delete_old_agents bool = false
-param max_agent_retry int = 3
+param max_agent_retry int = 4
 
 // App:
 @allowed([
