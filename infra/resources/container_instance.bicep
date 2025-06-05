@@ -38,6 +38,8 @@ param search_index_name string = 'conv-assistant-manuals-idx'
 
 // Agents:
 param agents_project_endpoint string
+param delete_old_agents bool = false
+param max_agent_retry int = 3
 
 // App:
 @allowed([
@@ -238,6 +240,14 @@ resource container_instance 'Microsoft.ContainerInstance/containerGroups@2024-10
             {
               name: 'ROUTER_TYPE'
               value: router_type
+            }
+            {
+              name: 'DELETE_OLD_AGENTS'
+              value: delete_old_agents ? 'true' : 'false'
+            }
+            {
+              name: 'MAX_AGENT_RETRY'
+              value: string(max_agent_retry)
             }
           ]
         }

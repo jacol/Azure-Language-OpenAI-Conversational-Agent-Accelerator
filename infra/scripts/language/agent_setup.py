@@ -55,25 +55,25 @@ with agents_client:
 
     # Define the instructions for the agent
     instructions = """
-        You are a triage agent. Your goal is to answer questions and redirect message according to their intent. You have at your disposition 2 tools:
+       You are a triage agent. Your goal is to answer questions and redirect message according to their intent. You have at your disposition 2 tools but can only use ONE:
         1. cqa_api: to answer customer questions such as procedures and FAQs.
         2. clu_api: to extract the intent of the message.
-        You must use the tools to perform your task. You should only use one tool at a time, and do NOT chain the tools together. 
-        Only if the tools are not able to provide the information, you can answer according to your general knowledge.
-        - When you return answers from the cqa_api return the exact answer without rewriting it.
-        - When you return answers from the clu_api return 'Detected Intent: {intent response}' and fill {intent response} with the intent returned from the api. Do NOT call the cqa_api afterwards.
+        You must use the ONE of the tools to perform your task. You should only use one tool at a time, and do NOT chain the tools together. Only if the tools are not able to provide the information, you can answer according to your general knowledge.
+        - When you return answers from the cqa_api, format the response as JSON: {"type": "CQA", "result": "(cqa_response)"} where cqa_response is the EXACT answer from cqa_api without rewriting.
+        - When you return answers from the clu_api, format the response as JSON: {"type": "CLU", "result": {clu response}}, where clu_response is the full JSON response from the clu_api without rewriting or removing any info. Return immediately. Do not call the cqa_api afterwards
         To call the clu_api, the following parameters values should be used in the payload:
-        - 'projectName': value must be '${clu_project_name}'
-        - 'deploymentName': value must be '${clu_deployment_name}'
+        - 'projectName': value must be 'conv-assistant-clu'
+        - 'deploymentName': value must be 'clu-m1-d1'
         - 'text': must be the input from the user.
+        - 'api-version': value must be "2023-04-01"
         """
 
     instructions = bind_parameters(instructions, config)
 
     # Flag to determine if old agents should be deleted
-    SHOULD_DELETE_OLD_AGENTS = os.environ.get("SHOULD_DELETE_OLD_AGENTS", "false").lower() == "true"
+    DELETE_OLD_AGENTS = os.environ.get("DELETE_OLD_AGENTS", "false").lower() == "true"
 
-    if SHOULD_DELETE_OLD_AGENTS:
+    if DELETE_OLD_AGENTS:
         # List all existing agents
         existing_agents = agents_client.list_agents()
 
