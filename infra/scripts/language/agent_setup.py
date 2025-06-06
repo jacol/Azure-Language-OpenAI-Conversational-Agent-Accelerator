@@ -7,17 +7,20 @@ from utils import bind_parameters
 
 config = {}
 
-project_endpoint = os.environ.get("AGENTS_PROJECT_ENDPOINT")
-model_name = os.environ.get("AOAI_DEPLOYMENT")
+DELETE_OLD_AGENTS = os.environ.get("DELETE_OLD_AGENTS", "false").lower() == "true"
+PROJECT_ENDPOINT = os.environ.get("AGENTS_PROJECT_ENDPOINT")
+MODEL_NAME = os.environ.get("AOAI_DEPLOYMENT")
+
 config['language_resource_url'] = os.environ.get("LANGUAGE_ENDPOINT")
 config['clu_project_name'] = os.environ.get("CLU_PROJECT_NAME")
 config['clu_deployment_name'] = os.environ.get("CLU_DEPLOYMENT_NAME")
 config['cqa_project_name'] = os.environ.get("CQA_PROJECT_NAME")
 config['cqa_deployment_name'] = os.environ.get("CQA_DEPLOYMENT_NAME")
 
+
 # Create agent client
 agents_client = AgentsClient(
-    endpoint=project_endpoint,
+    endpoint=PROJECT_ENDPOINT,
     credential=DefaultAzureCredential(),
     api_version="2025-05-15-preview"
 )
@@ -60,11 +63,11 @@ with agents_client:
         2. clu_api: to extract the intent of the message.
         You must use the ONE of the tools to perform your task. You should only use one tool at a time, and do NOT chain the tools together. Only if the tools are not able to provide the information, you can answer according to your general knowledge. You must return the full API response for either tool and ensure it's a valid JSON.
         - When you return answers from the clu_api, format the response as JSON: {"type": "clu_result", "response": {clu_response}}, where clu_response is the full JSON API response from the clu_api without rewriting or removing any info.   Return immediately. Do not call the cqa_api afterwards.
-        To call the clu_api, the following parameters values should be used in the payload:
-        - 'projectName': value must be 'conv-assistant-clu'
-        - 'deploymentName': value must be 'clu-m1-d1'
-        - 'text': must be the input from the user.
-        - 'api-version': must be "2023-04-01"
+          To call the clu_api, the following parameters values should be used in the payload:
+            - 'projectName': value must be 'conv-assistant-clu'
+            - 'deploymentName': value must be 'clu-m1-d1'
+            - 'text': must be the input from the user.
+            - 'api-version': must be "2023-04-01"
         - When you return answers from the cqa_api, format the response as JSON: {"type": "cqa_result", "response": {cqa_response}} where cqa_response is the full JSON API response from the cqa_api without rewriting or removing any info. Return immediately
         """
 
@@ -86,7 +89,7 @@ with agents_client:
 
     # Create the agent
     agent = agents_client.create_agent(
-        model=model_name,
+        model=MODEL_NAME,
         name=AGENT_NAME,
         instructions=instructions,
         tools=cqa_api_tool.definitions + clu_api_tool.definitions

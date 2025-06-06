@@ -247,7 +247,7 @@ resource container_instance 'Microsoft.ContainerInstance/containerGroups@2024-10
             }
             {
               name: 'MAX_AGENT_RETRY'
-              value:max_agent_retry
+              value: max_agent_retry
             }
           ]
         }
