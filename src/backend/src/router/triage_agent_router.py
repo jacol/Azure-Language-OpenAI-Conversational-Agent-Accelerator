@@ -50,41 +50,46 @@ def create_triage_agent_router() -> Callable[[str, str, str], dict]:
         )
         print(f"Created message: {message['id']}")
         
-        # Add retry logic in case the agent fails
+        # Process the agent run and handle retries
         max_retries = int(os.environ.get("MAX_AGENT_RETRY", 3))
         for attempt in range(1, max_retries + 1):
             run = agents_client.runs.create_and_process(thread_id=thread.id, agent_id=agent.id)
             print(f"Run attempt {attempt} finished with status: {run.status}")
 
             if run.status == "completed":
-                break  # Exit the loop if the run succeeds
+                # Fetch and log all messages if successful run
+                messages = agents_client.messages.list(thread_id=thread.id, order=ListSortOrder.ASCENDING)
+                for msg in messages:
+                    if msg.text_messages:
+                        last_text = msg.text_messages[-1]
+                        print(f"{msg.role}: {last_text.text.value}")
+
+                        # Load the agent response into a JSON
+                        if msg.role == "assistant" :
+                            try:
+                                # Attempt to parse the agent response as JSON
+                                data = json.loads(last_text.text.value)
+                                parsed_result = parse_response(data)
+                                return parsed_result
+                            except json.JSONDecodeError as e:
+                                print(f"Error decoding JSON on attempt {attempt}: {e}")
+                                print(f"Raw JSON string: {last_text.text.value}")
+
+                                # If JSON parsing fails, handle retries or raise an error if max retries reached
+                                if attempt == max_retries:
+                                    raise RuntimeError(f"JSON parsing failed after {max_retries} attempts.")
+                                else:
+                                    # Exit the inner loop to retry agent run
+                                    print(f"Retrying agent run due to JSON parsing error... Attempt {attempt + 1}/{max_retries}")
+                                    break
+        
+            # If run fails, handle retries or raise an error if max retries reached
             elif attempt == max_retries:
                 print(f"Run failed after {max_retries} attempts: {run.last_error}")
                 raise RuntimeError()
             else:
                 print(f"Run failed on attempt {attempt}: {run.last_error}. Retrying...")
 
-        # Process the agent run
-        # run = agents_client.runs.create_and_process(thread_id=thread.id, agent_id=agent.id)
-        # print(f"Run finished with status: {run.status}")
-    
-        # if run.status == "failed":
-        #     print(f"Run failed: {run.last_error}")
-
-        # Fetch and log all messages
-        messages = agents_client.messages.list(thread_id=thread.id, order=ListSortOrder.ASCENDING)
-        for msg in messages:
-            if msg.text_messages:
-                last_text = msg.text_messages[-1]
-                print(f"{msg.role}: {last_text.text.value}")
-
-                # Load the agent response into a JSON
-                if msg.role == "assistant" :
-                    data = json.loads(last_text.text.value)
-
-                    # Parse the response whether it is CLU or CQA result
-                    parsed_result = parse_response(data)
-                    return parsed_result
 
     return triage_agent_router
 
@@ -94,10 +99,12 @@ def parse_response(
     """
     Parse Triage Agent Message response.
     """
-    # Check orchestration routing kind:
+    # Check tool kind used by the agent
     kind = response["type"]
     error = None
     parsed_result = {}
+
+    # Parse the response based on tool used
     if kind == "clu_result":
         parsed_result = parse_clu_response(
             response=response["response"]
