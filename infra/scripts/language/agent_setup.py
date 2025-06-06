@@ -5,19 +5,6 @@ from azure.ai.agents.models import OpenApiTool, OpenApiManagedAuthDetails,OpenAp
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
 from utils import bind_parameters
 
-
-
-def get_azure_credential():
-    use_mi_auth = os.environ.get('USE_MI_AUTH', 'false').lower() == 'true'
-
-    if use_mi_auth:
-        mi_client_id = os.environ['MI_CLIENT_ID']
-        return ManagedIdentityCredential(
-            client_id=mi_client_id
-        )
-
-    return DefaultAzureCredential()
-
 config = {}
 
 project_endpoint = os.environ.get("AGENTS_PROJECT_ENDPOINT")
@@ -31,7 +18,7 @@ config['cqa_deployment_name'] = os.environ.get("CQA_DEPLOYMENT_NAME")
 # Create agent client
 agents_client = AgentsClient(
     endpoint=project_endpoint,
-    credential=get_azure_credential(),
+    credential=DefaultAzureCredential(),
     api_version="2025-05-15-preview"
 )
 
@@ -73,11 +60,11 @@ with agents_client:
         2. clu_api: to extract the intent of the message.
         You must use the ONE of the tools to perform your task. You should only use one tool at a time, and do NOT chain the tools together. Only if the tools are not able to provide the information, you can answer according to your general knowledge. You must return the full API response for either tool and ensure it's a valid JSON.
         - When you return answers from the clu_api, format the response as JSON: {"type": "clu_result", "response": {clu_response}}, where clu_response is the full JSON API response from the clu_api without rewriting or removing any info.   Return immediately. Do not call the cqa_api afterwards.
-            To call the clu_api, the following parameters values should be used in the payload:
-            - 'projectName': value must be 'conv-assistant-clu'
-            - 'deploymentName': value must be 'clu-m1-d1'
-            - 'text': must be the input from the user.
-            - 'api-version': must be "2023-04-01"
+        To call the clu_api, the following parameters values should be used in the payload:
+        - 'projectName': value must be 'conv-assistant-clu'
+        - 'deploymentName': value must be 'clu-m1-d1'
+        - 'text': must be the input from the user.
+        - 'api-version': must be "2023-04-01"
         - When you return answers from the cqa_api, format the response as JSON: {"type": "cqa_result", "response": {cqa_response}} where cqa_response is the full JSON API response from the cqa_api without rewriting or removing any info. Return immediately
         """
 
