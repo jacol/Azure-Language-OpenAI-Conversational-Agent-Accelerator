@@ -15,6 +15,7 @@ _logger = logging.getLogger(__name__)
 
 PII_ENABLED = os.environ.get("PII_ENABLED", "false").lower() == "true"
 
+
 def create_triage_agent_router() -> Callable[[str, str, str], dict]:
     """
     Create triage agent router.
@@ -41,15 +42,6 @@ def create_triage_agent_router() -> Callable[[str, str, str], dict]:
         # Create thread for communication
         thread = agents_client.threads.create()
         _logger.info(f"Created thread, ID: {thread.id}")
-
-        # Redact PII if enabled
-        if PII_ENABLED:
-            utterance = pii_redacter.redact(
-                text=utterance,
-                id=id,
-                language=language,
-                cache=True
-            )     
 
         # Create and add user message to thread
         message = agents_client.messages.create(
