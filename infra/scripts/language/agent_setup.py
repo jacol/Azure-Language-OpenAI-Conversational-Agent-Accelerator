@@ -99,3 +99,4 @@ with agents_client:
 
     # Output the agent ID to be captured as env variable
     print(agent.id)
+    
