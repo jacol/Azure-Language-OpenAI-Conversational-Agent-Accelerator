@@ -3,6 +3,7 @@ flask
 openai
 azure-identity
 azure-search-documents
+azure-ai-agents
 azure-ai-textanalytics
 azure-ai-language-conversations
 azure-ai-language-questionanswering

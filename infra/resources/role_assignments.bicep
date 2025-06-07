@@ -107,6 +107,17 @@ resource mi_cognitive_services_language_owner_role_assignment 'Microsoft.Authori
   }
 }
 
+// PRINCIPAL: AI Foundry (OpenAI)
+resource foundry_cognitive_services_language_owner_role_assignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(ai_foundry.id, ai_foundry.id, cognitive_services_language_owner_role.id)
+  scope: ai_foundry
+  properties: {
+    principalId: ai_foundry.identity.principalId
+    roleDefinitionId: cognitive_services_language_owner_role.id
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // PRINCIPAL: Managed Identity
 resource mi_azure_ai_account_owner_role_assignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(ai_foundry.id, managed_identity.id, azure_ai_account_owner_role.id)
@@ -114,6 +125,17 @@ resource mi_azure_ai_account_owner_role_assignment 'Microsoft.Authorization/role
   properties: {
     principalId: managed_identity.properties.principalId
     roleDefinitionId: azure_ai_account_owner_role.id
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// PRINCIPAL: Managed Identity
+resource mi_azure_ai_account_user_role_assignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(ai_foundry.id, managed_identity.id, azure_ai_account_user_role.id)
+  scope: ai_foundry
+  properties: {
+    principalId: managed_identity.properties.principalId
+    roleDefinitionId: azure_ai_account_user_role.id
     principalType: 'ServicePrincipal'
   }
 }
@@ -163,6 +185,11 @@ resource cognitive_services_language_owner_role 'Microsoft.Authorization/roleDef
 @description('Built-in Azure AI Account Owner role (https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/rbac-azure-ai-foundry?pivots=fdp-project#azure-ai-account-owner).')
 resource azure_ai_account_owner_role 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   name: 'e47c6f54-e4a2-4754-9501-8e0985b135e1'
+}
+
+@description('Built-in Azure AI Account User role (https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/rbac-azure-ai-foundry?pivots=fdp-project#azure-ai-user).')
+resource azure_ai_account_user_role 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: '53ca6127-db72-4b80-b1b0-d745d6d5456d'
 }
 
 //----------- Outputs -----------//

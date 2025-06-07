@@ -21,3 +21,6 @@ class RouterType(Enum):
 
     # GPT function-calling to decide CLU or CQA:
     FUNCTION_CALLING = "FUNCTION_CALLING"
+
+    # Triage agent to decide CLU or CQA:
+    TRIAGE_AGENT = "TRIAGE_AGENT"

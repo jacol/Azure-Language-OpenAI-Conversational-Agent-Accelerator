@@ -30,7 +30,7 @@ npm -v
 
 # Run setup:
 echo "Running setup..."
-bash language/run_language_setup.sh
+source language/run_language_setup.sh
 bash search/run_search_setup.sh ${STORAGE_ACCOUNT_NAME} ${BLOB_CONTAINER_NAME}
 
 # Build UI:

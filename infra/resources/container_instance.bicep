@@ -38,6 +38,8 @@ param search_index_name string = 'conv-assistant-manuals-idx'
 
 // Agents:
 param agents_project_endpoint string
+param delete_old_agents string = 'false'
+param max_agent_retry string = '3'
 
 // App:
 @allowed([
@@ -46,8 +48,9 @@ param agents_project_endpoint string
   'CQA'
   'ORCHESTRATION'
   'FUNCTION_CALLING'
+  'TRIAGE_AGENT'
 ])
-param router_type string = 'ORCHESTRATION'
+param router_type string = 'TRIAGE_AGENT'
 param image string = 'mcr.microsoft.com/azure-cli:cbl-mariner2.0'
 param port int = 80
 param repository string = 'https://github.com/Azure-Samples/Azure-Language-OpenAI-Conversational-Agent-Accelerator' // TODO
@@ -237,6 +240,14 @@ resource container_instance 'Microsoft.ContainerInstance/containerGroups@2024-10
             {
               name: 'ROUTER_TYPE'
               value: router_type
+            }
+            {
+              name: 'DELETE_OLD_AGENTS'
+              value: delete_old_agents
+            }
+            {
+              name: 'MAX_AGENT_RETRY'
+              value: max_agent_retry
             }
           ]
         }
