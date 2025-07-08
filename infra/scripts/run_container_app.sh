@@ -29,9 +29,12 @@ nvm current
 npm -v
 
 # Run setup:
+export CONFIG_DIR="$(pwd)/config_dir"
+mkdir -p $CONFIG_DIR
 echo "Running setup..."
 source language/run_language_setup.sh
 bash search/run_search_setup.sh ${STORAGE_ACCOUNT_NAME} ${BLOB_CONTAINER_NAME}
+source language/run_agent_setup.sh
 
 # Build UI:
 echo "Building UI..."
@@ -40,10 +43,11 @@ npm install
 npm run build
 
 # Run app:
-echo "Running app..."
+echo "Running uvicorn app..."
 cd ${backend_dir}
 python3 -m pip install -r requirements.txt
 cd src
 cp -r ${frontend_dir}/dist .
 
-python3 -m flask --app server run --host=0.0.0.0 --port 80
+# Run the uvicorn server
+python3 -m uvicorn app:app --host 0.0.0.0 --port 8000

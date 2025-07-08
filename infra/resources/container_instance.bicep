@@ -51,10 +51,10 @@ param max_agent_retry string = '5'
   'TRIAGE_AGENT'
 ])
 param router_type string = 'TRIAGE_AGENT'
-param image string = 'mcr.microsoft.com/azure-cli:cbl-mariner2.0'
-param port int = 80
-param repository string = 'https://github.com/Azure-Samples/Azure-Language-OpenAI-Conversational-Agent-Accelerator' // TODO
-
+param image string = 'mcr.microsoft.com/azure-cli'
+param port int = 8000
+param repository string = 'https://github.com/Azure-Samples/Azure-Language-OpenAI-Conversational-Agent-Accelerator'
+ 
 // Managed Identity:
 @description('Name of managed identity to use for Container Apps.')
 param managed_identity_name string

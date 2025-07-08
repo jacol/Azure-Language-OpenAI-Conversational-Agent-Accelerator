@@ -25,11 +25,12 @@
           {
             "name": "api-version",
             "in": "query",
-            "description": "The API version to use for this operation. The value must be '2023-04-01'",
+            "description": "The version must be '2023-04-01'",
             "required": true,
             "schema": {
               "minLength": 1,
-              "type": "string"
+              "type": "string",
+              "default": "2023-04-01"
             }
           }
         ],
