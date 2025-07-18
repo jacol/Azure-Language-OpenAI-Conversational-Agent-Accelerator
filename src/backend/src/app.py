@@ -3,7 +3,6 @@
 import os
 import json
 import logging
-from json import JSONDecodeError
 import pii_redacter
 from fastapi import FastAPI, HTTPException
 from fastapi.concurrency import asynccontextmanager
@@ -15,13 +14,18 @@ from azure.identity.aio import DefaultAzureCredential
 from semantic_kernel.agents import AzureAIAgent
 from utils import get_azure_credential
 from aoai_client import AOAIClient, get_prompt
-
 from azure.search.documents import SearchClient
 
 # Run locally with `uvicorn app:app --reload --host 127.0.0.1 --port 7000`
 # Comment out for local testing:
 # from dotenv import load_dotenv
 # load_dotenv()
+
+
+# Initialize structure for holding chat requests
+class ChatRequest(BaseModel):
+    message: str
+
 
 # Environment variables
 PROJECT_ENDPOINT = os.environ.get("AGENTS_PROJECT_ENDPOINT")
@@ -48,7 +52,7 @@ else:
 # Check if all required agent IDs are present
 required_agents = [
     "TRIAGE_AGENT_ID",
-    "HEAD_SUPPORT_AGENT_ID", 
+    "HEAD_SUPPORT_AGENT_ID",
     "ORDER_STATUS_AGENT_ID",
     "ORDER_CANCEL_AGENT_ID",
     "ORDER_REFUND_AGENT_ID"
@@ -64,8 +68,6 @@ DIST_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "dist"))
 # log dist_dir
 print(f"DIST_DIR: {DIST_DIR}")
 
-class ChatRequest(BaseModel):
-    message: str
 
 # Initialize the Azure Search client
 search_client = SearchClient(
@@ -96,6 +98,7 @@ extract_client = AOAIClient(
 PII_ENABLED = os.environ.get("PII_ENABLED", "false").lower() == "true"
 print(f"PII_ENABLED: {PII_ENABLED}")
 
+
 # Fallback function (RAG) definition:
 def fallback_function(
     query: str,
@@ -116,6 +119,7 @@ def fallback_function(
 
     return rag_client.chat_completion(query)
 
+
 # Function to handle processing and orchestrating a chat message with utterance extraction, fallback handling, and PII redaction
 async def orchestrate_chat(message: str, orchestrator: SemanticKernelOrchestrator, chat_id: int) -> list[str]:
     responses = []
@@ -130,65 +134,41 @@ async def orchestrate_chat(message: str, orchestrator: SemanticKernelOrchestrato
                 cache=True
             )
 
-        # Extract utterances
-        print(f"Extracting utterances from message: {message}")
-        utterances = extract_client.chat_completion(message)
-        print(f"Utterances: {utterances}")
+        try:
+            # Try semantic kernel orchestration first
+            orchestrator = app.state.orchestrator
+            response = await orchestrator.process_message(message)
+            if isinstance(response, dict) and response.get("error"):
+                # If semantic kernel fails, use fallback
+                print(f"Semantic kernel failed, using fallback for: {message}")
+                response = fallback_function(
+                    message,
+                    "en",  # Assuming English for simplicity, adjust as needed
+                    chat_id
+                )
+            responses.append(response)
 
-        if not isinstance(utterances, list):
-            try:
-                utterances = json.loads(utterances)
-            except JSONDecodeError:
-                logging.warning("Failed to parse utterances, possibly harmful content")
-                return ['I am unable to process this request.']
-
-        # Process each utterance
-        for utterance in utterances:
-            try:
-                # Reconstruct PII if needed
-                if PII_ENABLED:
-                    utterance = pii_redacter.reconstruct(
-                        text=utterance,
-                        id=chat_id,
-                        cache=True
-                    )
-
-                # Try semantic kernel orchestration first
-                orchestrator = app.state.orchestrator
-                response = await orchestrator.process_message(utterance)
-                
-                if isinstance(response, dict) and response.get("error"):
-                    # If semantic kernel fails, use fallback
-                    print(f"Semantic kernel failed, using fallback for: {utterance}")
-                    response = fallback_function(
-                        utterance,
-                        "en",  # Assuming English for simplicity, adjust as needed
-                        chat_id
-                    )
-                    responses.append(response)
-                else:
-                    responses.append(response)
-
-            except Exception as e:
-                logging.error(f"Error processing utterance: {e}")
-                responses.append("I encountered an error processing part of your message.")
+        except Exception as e:
+            logging.error(f"Error processing utterance: {e}")
+            responses.append("I encountered an error processing part of your message.")
 
     except Exception as e:
         logging.error(f"Error in message processing: {e}")
-        responses = ["I apologize, but I'm having trouble processing your request."]
+        responses = ["I apologize, but I'm having trouble processing your request. Please try again."]
 
     finally:
         # Clean up PII cache if enabled
         if PII_ENABLED:
             pii_redacter.remove(id=chat_id)
-
     return responses
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Setup app
     try:
         logging.basicConfig(level=logging.WARNING)
+
         print("Setting up Azure credentials and client...")
         print(f"Using PROJECT_ENDPOINT: {PROJECT_ENDPOINT}")
         print(f"Using MODEL_NAME: {MODEL_NAME}")
@@ -196,11 +176,11 @@ async def lifespan(app: FastAPI):
         async with DefaultAzureCredential(exclude_interactive_browser_credential=False) as creds:
             async with AzureAIAgent.create_client(credential=creds, endpoint=PROJECT_ENDPOINT) as client:
                 orchestrator = SemanticKernelOrchestrator(
-                    client, 
-                    MODEL_NAME, 
-                    PROJECT_ENDPOINT, 
-                    AGENT_IDS, 
-                    fallback_function, 
+                    client,
+                    MODEL_NAME,
+                    PROJECT_ENDPOINT,
+                    AGENT_IDS,
+                    fallback_function,
                     3
                 )
                 await orchestrator.create_agent_group_chat()
@@ -217,11 +197,6 @@ async def lifespan(app: FastAPI):
         logging.error(f"Error during setup: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-    finally:
-        # Teardown
-        await client.__aexit__(None, None, None)
-        await creds.__aexit__(None, None, None)
-
 # Create FastAPI app with lifespan
 app = FastAPI(lifespan=lifespan)
 app.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), name="assets")
@@ -233,6 +208,7 @@ app.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), na
 async def serve_frontend():
     return FileResponse(os.path.join(DIST_DIR, "index.html"))
 
+
 # Define the chat endpoint
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
@@ -241,7 +217,7 @@ async def chat_endpoint(request: ChatRequest):
         orchestrator = app.state.orchestrator
         responses = await orchestrate_chat(request.message, orchestrator, chat_id=0)
         return JSONResponse(content={"messages": responses}, status_code=200)
-    
+
     except Exception as e:
         logging.error(f"Error in chat endpoint: {e}")
         return JSONResponse(
