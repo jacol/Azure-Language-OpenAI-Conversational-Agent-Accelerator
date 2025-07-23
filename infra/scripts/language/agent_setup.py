@@ -19,7 +19,7 @@ config['clu_deployment_name'] = os.environ.get("CLU_DEPLOYMENT_NAME")
 config['cqa_project_name'] = os.environ.get("CQA_PROJECT_NAME")
 config['cqa_deployment_name'] = os.environ.get("CQA_DEPLOYMENT_NAME")
 config['translator_resource_id'] = os.environ.get("TRANSLATOR_RESOURCE_ID")
-config['translator_region'] = os.environ.get("LOCATION")
+config['translator_region'] = os.environ.get("TRANSLATOR_REGION")
 config['translator_resource_id'] = os.environ.get("TRANSLATOR_RESOURCE_ID")
 
 # Create agent client
