@@ -33,6 +33,7 @@ AGENT_IDS = {
     "ORDER_REFUND_AGENT_ID": os.environ.get("ORDER_REFUND_AGENT_ID"),
     "TRANSLATION_AGENT_ID": os.environ.get("TRANSLATION_AGENT_ID"),
     "CUSTOMER_TRANSLATE_AGENT_ID": os.environ.get("CUSTOMER_TRANSLATE_AGENT_ID"),
+    "SINGLE_TRANSLATE_AGENT_ID": os.environ.get("SINGLE_TRANSLATE_AGENT_ID"),
 }
 
 # Define the confidence threshold for CLU intent recognition
@@ -79,7 +80,7 @@ class CustomGroupChatManager(GroupChatManager):
 
                 try:
                     return StringResult(
-                        result=next((agent for agent in participant_descriptions.keys() if agent == "TranslatorAgent"), None),
+                        result=next((agent for agent in participant_descriptions.keys() if agent == "TranslationAgent"), None),
                         reason="Routing to TranslationAgent for initial translation."
                     )
                 except Exception as e:
@@ -88,7 +89,7 @@ class CustomGroupChatManager(GroupChatManager):
                         reason=f"Error routing to TranslationAgent: {e}"
                     )
         
-        elif last_message.name == "TranslatorAgent":
+        elif last_message.name == "TranslationAgent":
             try:
                 parsed = json.loads(last_message.content)
                 response = parsed['response']
@@ -157,16 +158,16 @@ class CustomGroupChatManager(GroupChatManager):
                 )
         
         elif last_message.name in ["OrderStatusAgent", "OrderCancelAgent", "OrderRefundAgent"]:
-            print(f"[SYSTEM]: Last message is from {last_message.name}, returning to translator for final routing.")
+            print(f"[SYSTEM]: Last message is from {last_message.name}, returning to TranslationAgent for final routing.")
             try:
                 parsed = json.loads(last_message.content)
 
                 return StringResult(
-                    result=next((agent for agent in participant_descriptions.keys() if agent == "Agent850"), None),
+                    result=next((agent for agent in participant_descriptions.keys() if agent == "TranslationAgent"), None),
                     reason="Handle final message formatting"
                 )
             except Exception as e:
-                print(f"[SYSTEM]: Error preparing TranslatorAgent follow-up: {e}")
+                print(f"[SYSTEM]: Error preparing TranslationAgent follow-up: {e}")
         # Default case
         print("[SYSTEM]: No valid routing logic found, returning None.")
         return StringResult(
@@ -188,11 +189,11 @@ class CustomGroupChatManager(GroupChatManager):
                 reason="No messages in chat history."
             )
 
-        if last_message.name == "Agent850":
+        if last_message.name == "TranslationAgent" and len(chat_history) > 3:
             print(last_message.name)
             return BooleanResult(
                 result=True,
-                reason="Chat terminated due to TranslatorAgent response."
+                reason="Chat terminated due to TranslationAgent response."
             )
 
         return BooleanResult(
@@ -293,6 +294,13 @@ async def main():
                 description="Translates from English into the customer language",
             )
 
+            single_translate_agent_definition = await client.agents.get_agent(os.environ.get("SINGLE_TRANSLATE_AGENT_ID"))
+            single_translate_agent = AzureAIAgent(
+                client=client,
+                definition=single_translate_agent_definition,
+                description="Translates different languages",
+            )
+
             print("Agents initialized successfully.")
             print(f"Triage Agent ID: {triage_agent.id}")
             print(f"Head Support Agent ID: {head_support_agent.id}")
@@ -300,7 +308,7 @@ async def main():
             print(f"Order Cancel Agent ID: {order_cancel_agent.id}")
             print(f"Order Refund Agent ID: {order_refund_agent.id}")
 
-            created_agents = [translation_agent, triage_agent, head_support_agent, order_status_agent, order_cancel_agent, order_refund_agent, customer_translate_agent]
+            created_agents = [translation_agent, triage_agent, head_support_agent, order_status_agent, order_cancel_agent, order_refund_agent, customer_translate_agent, single_translate_agent]
 
             orchestration = GroupChatOrchestration(
                 members=created_agents,
@@ -316,7 +324,7 @@ async def main():
 
                 try:
                     task_json = {  
-                        "query": "Commande 123, utilisateur - Je veux annuler une commande, système - Veuillez fournir plus d'informations",       
+                        "query": "Ordine 923847, User - Voglio rimborsare un ordine, System - Per favore fornisci ulteriori informazioni sul tuo ordine in modo che io possa assisterti meglio.",       
                         "to": "english"  
                     }
                     task_string = json.dumps(task_json)
