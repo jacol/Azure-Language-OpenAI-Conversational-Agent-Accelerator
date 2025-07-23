@@ -18,7 +18,9 @@ config['clu_project_name'] = os.environ.get("CLU_PROJECT_NAME")
 config['clu_deployment_name'] = os.environ.get("CLU_DEPLOYMENT_NAME")
 config['cqa_project_name'] = os.environ.get("CQA_PROJECT_NAME")
 config['cqa_deployment_name'] = os.environ.get("CQA_DEPLOYMENT_NAME")
-
+config['translator_resource_id'] = os.environ.get("TRANSLATOR_RESOURCE_ID")
+config['translator_region'] = os.environ.get("LOCATION")
+config['translator_resource_id'] = os.environ.get("TRANSLATOR_RESOURCE_ID")
 
 # Create agent client
 agents_client = AgentsClient(
@@ -32,7 +34,7 @@ def create_tools(config):
     # Set up the auth details for the OpenAPI connection
     auth = OpenApiManagedAuthDetails(security_scheme=OpenApiManagedSecurityScheme(audience="https://cognitiveservices.azure.com/"))
 
-    # Read in the OpenAPI spec from a file
+    # Read in the CLU OpenAPI spec
     with open("clu_convai.json", "r") as f:
         clu_openapi_spec = json.loads(bind_parameters(f.read(), config))
 
@@ -43,7 +45,7 @@ def create_tools(config):
         auth=auth
     )
 
-    # Read in the OpenAPI spec from a file
+    # Read in the CQA OpenAPI spec
     with open("cqa.json", "r") as f:
         cqa_openapi_spec = json.loads(bind_parameters(f.read(), config))
 
@@ -55,7 +57,19 @@ def create_tools(config):
         auth=auth
     )
 
-    return clu_api_tool, cqa_api_tool
+    # Read in the Translation OpenAPI spec
+    with open("translation.json", "r") as f:
+        translation_openapi_spec = json.loads(bind_parameters(f.read(), config))
+
+    # Initialize an Agent OpenApi tool using the read in OpenAPI spec
+    translation_api_tool = OpenApiTool(
+        name="translation_api",
+        spec=translation_openapi_spec,
+        description="An API to translate text from one language to another",
+        auth=auth
+    )
+
+    return clu_api_tool, cqa_api_tool, translation_api_tool
 
 
 with agents_client:
@@ -199,6 +213,75 @@ with agents_client:
         instructions=ORDER_REFUND_AGENT_INSTRUCTIONS,
     )
 
+    # 4) Create the translation agent
+    TRANSLATION_AGENT_NAME = "TranslationAgent"
+    TRANSLATION_AGENT_INSTRUCTIONS = """
+    You are a translation agent that uses the Azure Translator API to translate messages either into English or from English to the user’s original language.
+
+    There are two types of inputs you will receive:
+
+    ---
+    Mode 1: Translate to English
+    Input Example:
+    {
+    "query": "Commande 123, utilisateur - Je veux annuler une commande, système - Veuillez fournir plus d'informations",       
+    "to": "english"
+    }
+
+    Instructions:
+    - Detect the language of "query".
+    - Translate the query to English.
+    - Return:
+    {
+    "origin_language": "<detected language>",
+    "response": {
+        "current_question": "<translated text>"
+    },
+    "target_language": "en"
+    }
+
+    ---
+    Mode 2: Translate from English to original language
+    Input Example:
+    {
+    "response": "Cancellation for order 123 has been processed successfully.",
+    "terminated": "True",
+    "need_more_info": "False"
+    }
+
+    Instructions:
+    - Assume the "response" is in English.
+    - Translate only the "response" field into the user's original language (this will be known from prior context).
+    - Return:
+    {
+    "origin_language": "<user's language>",
+    "source_language": "en",
+    "response": {
+        "final_answer": "<translated text>"
+    }
+    }
+
+    ---
+    API Usage Requirements:
+    - Always call Azure Translator API, version 3.0.
+    - Required headers:
+    - ocp-apim-resourceid: ${translator_resource_id}
+    - ocp-apim-subscription-region: ${translator_region}
+    - Use the "to=<target_language>" query parameter.
+    - Never return raw API output. Format your response exactly as described above.
+
+    Decide which mode to use by checking which fields are present in the input:
+    - If input contains "query" → use Mode 1.
+    - If input contains "response", "terminated", and "need_more_info" → use Mode 2.
+    """
+
+    TRANSLATION_AGENT_INSTRUCTIONS = bind_parameters(TRANSLATION_AGENT_INSTRUCTIONS, config)
+    translation_agent_definition = agents_client.create_agent(
+        model=MODEL_NAME,
+        name=TRANSLATION_AGENT_NAME,
+        instructions=TRANSLATION_AGENT_INSTRUCTIONS,
+    )
+
     # Output the agent IDs in a JSON format to be captured as env variables
     agent_ids = {
         "TRIAGE_AGENT_ID": triage_agent_definition.id,
@@ -206,6 +289,7 @@ with agents_client:
         "ORDER_STATUS_AGENT_ID": order_status_agent_definition.id,
         "ORDER_CANCEL_AGENT_ID": order_cancel_agent_definition.id,
         "ORDER_REFUND_AGENT_ID": order_refund_agent_definition.id,
+        "TRANSLATION_AGENT_ID": translation_agent_definition.id,
     }
 
     # Write to config.json file
