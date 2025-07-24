@@ -16,15 +16,22 @@ from utils import get_azure_credential
 from aoai_client import AOAIClient, get_prompt
 from azure.search.documents import SearchClient
 
+from typing import List
+
 # Run locally with `uvicorn app:app --reload --host 127.0.0.1 --port 7000`
 # Comment out for local testing:
 # from dotenv import load_dotenv
 # load_dotenv()
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
 
 # Initialize structure for holding chat requests
 class ChatRequest(BaseModel):
     message: str
+    history: List[ChatMessage]
 
 
 # Environment variables
@@ -41,13 +48,14 @@ else:
     AGENT_IDS = {}
 
 # Comment out for local testing:
-# AGENT_IDS = {
-#     "TRIAGE_AGENT_ID": os.environ.get("TRIAGE_AGENT_ID"),
-#     "HEAD_SUPPORT_AGENT_ID": os.environ.get("HEAD_SUPPORT_AGENT_ID"),
-#     "ORDER_STATUS_AGENT_ID": os.environ.get("ORDER_STATUS_AGENT_ID"),
-#     "ORDER_CANCEL_AGENT_ID": os.environ.get("ORDER_CANCEL_AGENT_ID"),
-#     "ORDER_REFUND_AGENT_ID": os.environ.get("ORDER_REFUND_AGENT_ID"),
-# }
+AGENT_IDS = {
+    "TRIAGE_AGENT_ID": os.environ.get("TRIAGE_AGENT_ID"),
+    "HEAD_SUPPORT_AGENT_ID": os.environ.get("HEAD_SUPPORT_AGENT_ID"),
+    "ORDER_STATUS_AGENT_ID": os.environ.get("ORDER_STATUS_AGENT_ID"),
+    "ORDER_CANCEL_AGENT_ID": os.environ.get("ORDER_CANCEL_AGENT_ID"),
+    "ORDER_REFUND_AGENT_ID": os.environ.get("ORDER_REFUND_AGENT_ID"),
+    "TRANSLATION_AGENT_ID": os.environ.get("TRANSLATION_AGENT_ID"),
+}
 
 # Check if all required agent IDs are present
 required_agents = [
@@ -121,15 +129,23 @@ def fallback_function(
 
 
 # Function to handle processing and orchestrating a chat message with utterance extraction, fallback handling, and PII redaction
-async def orchestrate_chat(message: str, orchestrator: SemanticKernelOrchestrator, chat_id: int) -> list[str]:
+async def orchestrate_chat(message: str, history: list[ChatMessage], orchestrator: SemanticKernelOrchestrator, chat_id: int) -> list[str]:
     responses = []
-    print(f"Processing message: {message} with chat_id: {chat_id}")
+
+    # Reshaping system input into proper backend format
+    task = f"query: {message}"
+
+    history_str = ", ".join(f"{msg.role} - {msg.content}" for msg in history)
+    if history_str:
+        task = f"query: {message}, {history_str}"
+
+    print(f"Processing message: {task} with chat_id: {chat_id}")
     try:
         # Handle PII redaction if enabled
         if PII_ENABLED:
-            print(f"Redacting PII for message: {message} with chat_id: {chat_id}")
-            message = pii_redacter.redact(
-                text=message,
+            print(f"Redacting PII for message: {task} with chat_id: {chat_id}")
+            task = pii_redacter.redact(
+                text=task,
                 id=chat_id,
                 cache=True
             )
@@ -137,7 +153,8 @@ async def orchestrate_chat(message: str, orchestrator: SemanticKernelOrchestrato
         try:
             # Try semantic kernel orchestration first
             orchestrator = app.state.orchestrator
-            response = await orchestrator.process_message(message)
+            response = await orchestrator.process_message(task)
+
             if isinstance(response, dict) and response.get("error"):
                 # If semantic kernel fails, use fallback
                 print(f"Semantic kernel failed, using fallback for: {message}")
@@ -215,7 +232,8 @@ async def chat_endpoint(request: ChatRequest):
     try:
         # Grab the orchestrator from app state and orchestrate chat message
         orchestrator = app.state.orchestrator
-        responses = await orchestrate_chat(request.message, orchestrator, chat_id=0)
+        # pass in message and history
+        responses = await orchestrate_chat(request.message, request.history, orchestrator, chat_id=0)
         return JSONResponse(content={"messages": responses}, status_code=200)
 
     except Exception as e:

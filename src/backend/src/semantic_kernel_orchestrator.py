@@ -11,17 +11,38 @@ from agents.order_status_plugin import OrderStatusPlugin
 from agents.order_refund_plugin import OrderRefundPlugin
 from agents.order_cancel_plugin import OrderCancellationPlugin
 from azure.ai.projects import AIProjectClient
+from pydantic import BaseModel
 
 # Define the confidence threshold for CLU intent recognition
 confidence_threshold = float(os.environ.get("CLU_CONFIDENCE_THRESHOLD", "0.5"))
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
 
 # Custom functions to route messages from specific roles / agents
 def route_user_message(participant_descriptions: dict) -> StringResult:
     try:
         return StringResult(
+            result=next((agent for agent in participant_descriptions.keys() if agent == "TranslationAgent"), None),
+            reason="Routing to TranslationAgent for initial translation."
+        )
+    except Exception as e:
+        return StringResult(
+            result=None,
+            reason=f"Error routing to TranslationAgent: {e}"
+        )
+    
+
+def route_translation_message(last_message: ChatMessageContent, participant_descriptions: dict) -> StringResult:
+    try:
+        parsed = json.loads(last_message.content)
+        response = parsed['response']
+        print("[TranslationAgent] Translated message:", response)
+
+        return StringResult(
             result=next((agent for agent in participant_descriptions.keys() if agent == "TriageAgent"), None),
-            reason="Routing to TriageAgent for initial triage."
+            reason="Routing to TriageAgent for message translation."
         )
     except Exception as e:
         return StringResult(
@@ -35,10 +56,10 @@ def route_triage_message(last_message: ChatMessageContent, participant_descripti
         parsed = json.loads(last_message.content)
         # Handle CQA results
         if parsed.get("type") == "cqa_result":
-            print("[SYSTEM]: CQA result received, determining final response...")
+            print("[SYSTEM]: CQA result received, translating final response...")
             return StringResult(
-                result=None,
-                reason="CQA result received, terminating chat."
+                result=next((agent for agent in participant_descriptions.keys() if agent == "TranslationAgent"), None),
+                reason="Routing to TranslationAgent for final translation."
             )
 
         # Handle CLU results
@@ -78,6 +99,21 @@ def route_head_support_message(last_message: ChatMessageContent, participant_des
             reason="Error processing HeadSupportAgent message."
         )
 
+def route_custom_agent_message(last_message: ChatMessageContent, participant_descriptions: dict) -> StringResult:
+    try:
+        response = json.loads(last_message.content)["response"]
+        print(f"[{last_message.name}]: Response content: {response}")
+        print(f"[TranslationAgent]: Translating {response}")
+        return StringResult(
+            result=next((agent for agent in participant_descriptions.keys() if agent == "TranslationAgent"), None),
+            reason="Handle final message translation back to original language."
+        )
+    except Exception as e:
+        print(f"[SYSTEM]: Error processing custom agent message: {e}")
+        return StringResult(
+            result=None,
+            reason="Error processing custom agent message."
+        )
 
 class CustomGroupChatManager(GroupChatManager):
     """
@@ -115,8 +151,12 @@ class CustomGroupChatManager(GroupChatManager):
 
         # Process user messages
         if not last_message or last_message.role == AuthorRole.USER:
-            print("[SYSTEM]: Last message is from the USER, routing to TriageAgent for initial triage...")
+            print("[SYSTEM]: Last message is from the USER, routing to TranslationAgent for initial translation...")
             return route_user_message(participant_descriptions)
+        
+        elif last_message.name == "TranslationAgent":
+            print("[SYSTEM]: Last message is from TranslationAgent, routing to TriageAgent for message translation...")
+            return route_translation_message(last_message, participant_descriptions)
 
         # Process triage agent messages
         elif last_message.name == "TriageAgent":
@@ -127,6 +167,11 @@ class CustomGroupChatManager(GroupChatManager):
         elif last_message.name == "HeadSupportAgent":
             print("[SYSTEM]: Last message is from HeadSupportAgent, choosing custom agent...")
             return route_head_support_message(last_message, participant_descriptions)
+        
+        # Process custom agent messages - customize as needed
+        elif last_message.name in ["OrderStatusAgent", "OrderRefundAgent", "OrderCancelAgent"]:
+            print(f"[SYSTEM]: Last message is from {last_message.name}, translate back to original language if needed.")
+            return route_custom_agent_message(last_message, participant_descriptions)
 
         # Default case
         print("[SYSTEM]: No valid routing logic found, returning None.")
@@ -148,29 +193,43 @@ class CustomGroupChatManager(GroupChatManager):
                 result=False,
                 reason="No messages in chat history."
             )
-
-        # Check if the last message contains termination or need_more_info flags
-        try:
-            parsed_content = json.loads(last_message.content)
-            terminated = parsed_content.get("terminated") == "True"
-            need_more_info = parsed_content.get("need_more_info") == "True"
-
-            if terminated or need_more_info:
-                return BooleanResult(
-                    result=True,
-                    reason="Chat terminated due to agent response."
-                )
-        except json.JSONDecodeError:
+        
+        # Check if message is from the translation agent and is not the initial translation
+        if last_message.name == "TranslationAgent" and len(chat_history) > 3:
+            print(last_message.name)
+            print(last_message.content)
             return BooleanResult(
-                result=False,
-                reason="Failed to parse last message content."
+                result=True,
+                reason="Chat terminated due to TranslationAgent response."
             )
 
-        # Default case: no termination
         return BooleanResult(
             result=False,
             reason="No termination flags found in last message."
         )
+
+        # Check if the last message contains termination or need_more_info flags
+        # try:
+        #     parsed_content = json.loads(last_message.content)
+        #     terminated = parsed_content.get("terminated") == "True"
+        #     need_more_info = parsed_content.get("need_more_info") == "True"
+
+        #     if terminated or need_more_info:
+        #         return BooleanResult(
+        #             result=True,
+        #             reason="Chat terminated due to agent response."
+        #         )
+        # except json.JSONDecodeError:
+        #     return BooleanResult(
+        #         result=False,
+        #         reason="Failed to parse last message content."
+        #     )
+
+        # # Default case: no termination
+        # return BooleanResult(
+        #     result=False,
+        #     reason="No termination flags found in last message."
+        # )
 
 
 # Custom multi-agent semantic kernel orchestrator
@@ -244,14 +303,22 @@ class SemanticKernelOrchestrator:
             description="A head support agent that routes inquiries to the proper custom agent.",
         )
 
+        translation_agent_definition = await self.client.agents.get_agent(self.agent_ids["TRANSLATION_AGENT_ID"])
+        translation_agent = AzureAIAgent(
+            client=self.client,
+            definition=translation_agent_definition,
+            description="A translation agent that translates to English",
+        )
+
         print("Agents initialized successfully.")
         print(f"Triage Agent ID: {triage_agent.id}")
         print(f"Head Support Agent ID: {head_support_agent.id}")
         print(f"Order Status Agent ID: {order_status_agent.id}")
         print(f"Order Cancel Agent ID: {order_cancel_agent.id}")
         print(f"Order Refund Agent ID: {order_refund_agent.id}")
+        print(f"Translation Agent ID: {translation_agent.id}")
 
-        return [triage_agent, head_support_agent, order_status_agent, order_cancel_agent, order_refund_agent]
+        return [translation_agent, triage_agent, head_support_agent, order_status_agent, order_cancel_agent, order_refund_agent]
 
     async def create_agent_group_chat(self) -> None:
         """
@@ -268,7 +335,7 @@ class SemanticKernelOrchestrator:
 
         print("Agent group chat created successfully.")
 
-    async def process_message(self, message_content: str) -> str:
+    async def process_message(self, task_content: str) -> str:
         """
         Process a message in the agent group chat.
         This method creates a new agent group chat and processes the message.
@@ -284,13 +351,13 @@ class SemanticKernelOrchestrator:
 
             try:
                 orchestration_result = await self.orchestration.invoke(
-                    task=message_content,
+                    task=task_content,
                     runtime=runtime,
                 )
 
                 try:
                     # Timeout to avoid indefinite hangs
-                    value = await orchestration_result.get(timeout=35)
+                    value = await orchestration_result.get(timeout=120)
                     print(f"\n***** Result *****\n{value.content}")
 
                     final_response = json.loads(value.content)
@@ -304,9 +371,9 @@ class SemanticKernelOrchestrator:
 
                     # if CLU
                     else:
-                        print("[SYSTEM]: Final CLU result received, printing custom agent response...")
-                        print("[SYSTEM]: Final response is ", final_response['response'])
-                        return final_response['response']
+                        print("[SYSTEM]: Final translated CLU result received, printing custom agent response...")
+                        print("[SYSTEM]: Final response is ", final_response['response']['final_answer'])
+                        return final_response['response']['final_answer']
 
                 except Exception as e:
                     print(f"[EXCEPTION]: Orchestration failed with exception: {e}")

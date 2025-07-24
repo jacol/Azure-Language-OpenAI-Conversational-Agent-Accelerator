@@ -324,7 +324,7 @@ async def main():
 
                 try:
                     task_json = {  
-                        "query": "Ordine 923847, User - Voglio rimborsare un ordine, System - Per favore fornisci ulteriori informazioni sul tuo ordine in modo che io possa assisterti meglio.",       
+                        "query": "الطلب 923847، المستخدم - عايز أسترجع طلب، النظام - من فضلك اشرح لي أكتر عن الطلب بتاعك عشان أقدر أساعدك بشكل أفضل.",       
                         "to": "english"  
                     }
                     task_string = json.dumps(task_json)
