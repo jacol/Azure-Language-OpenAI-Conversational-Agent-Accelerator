@@ -266,7 +266,7 @@ with agents_client:
     }
 
     ---
-    Mode 2: Translate from English to original language - the original language default should always be english
+    Mode 2: Translate from English to original language - if no original language is given, assume English as the default
     Input Example:
     {
     "response": <text>,
