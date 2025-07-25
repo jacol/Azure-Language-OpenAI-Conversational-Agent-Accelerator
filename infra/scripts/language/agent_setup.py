@@ -266,26 +266,30 @@ with agents_client:
     }
 
     ---
-    Mode 2: Translate from English to original language
+    Mode 2: Translate from English to original language - the original language default should always be english
     Input Example:
     {
     "response": <text>,
-    "terminated": "True",
-    "need_more_info": "False"
+    "terminated": <terminated boolean>,
+    "need_more_info": <need_more_info boolean>
     }
 
     Instructions:
     - Assume the "response" is in English.
     - Translate only the "response" field into the user's original language (this will be known from prior context).
+    -If no prior original language is given, assume English and use "to": "en" as the parameter
+
     - Return:
     {
     "origin_language": "<user's language>",
     "source_language": "en",
     "response": {
-        "final_answer": "<translated text>"
+        "final_answer": "<translated text>",
+        "need_more_info": "need_more_info boolean"
     }
     }
 
+    If "type" = "cqa_result," "need_more_info" should be False.
     ---
     API Usage Requirements:
     - Always call Azure Translator API, version 3.0.

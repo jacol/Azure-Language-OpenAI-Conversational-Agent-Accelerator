@@ -328,6 +328,7 @@ class SemanticKernelOrchestrator:
         """
         retry_count = 0
         last_exception = None
+        need_more_info = False
 
         # Use retry logic to handle potential errors during chat invocation
         while retry_count < self.max_retries:
@@ -349,7 +350,8 @@ class SemanticKernelOrchestrator:
                     final_response = json.loads(value.content)
 
                     print("[SYSTEM]: Final response is ", final_response['response']['final_answer'])
-                    return final_response['response']['final_answer']
+                    need_more_info = final_response['response']['need_more_info']
+                    return final_response['response']['final_answer'], need_more_info
 
                 except Exception as e:
                     print(f"[EXCEPTION]: Orchestration failed with exception: {e}")
@@ -368,7 +370,7 @@ class SemanticKernelOrchestrator:
         if last_exception:
             return {
                 "error": f"An error occurred: {last_exception}"
-            }
+            }, need_more_info
 
 
 def format_agent_response(response):

@@ -129,8 +129,14 @@ def fallback_function(
 
 
 # Function to handle processing and orchestrating a chat message with utterance extraction, fallback handling, and PII redaction
-async def orchestrate_chat(message: str, history: list[ChatMessage], orchestrator: SemanticKernelOrchestrator, chat_id: int) -> list[str]:
+async def orchestrate_chat(
+    message: str, 
+    history: list[ChatMessage],
+    orchestrator: SemanticKernelOrchestrator,
+    chat_id: int) -> tuple[list[str], bool]:
+
     responses = []
+    need_more_info = False
 
     # Reshaping system input into proper backend format
     task = f"query: {message}"
@@ -153,7 +159,7 @@ async def orchestrate_chat(message: str, history: list[ChatMessage], orchestrato
         try:
             # Try semantic kernel orchestration first
             orchestrator = app.state.orchestrator
-            response = await orchestrator.process_message(task)
+            response, need_more_info = await orchestrator.process_message(task)
 
             if isinstance(response, dict) and response.get("error"):
                 # If semantic kernel fails, use fallback
@@ -177,7 +183,8 @@ async def orchestrate_chat(message: str, history: list[ChatMessage], orchestrato
         # Clean up PII cache if enabled
         if PII_ENABLED:
             pii_redacter.remove(id=chat_id)
-    return responses
+
+    return responses, need_more_info
 
 
 @asynccontextmanager
@@ -233,8 +240,13 @@ async def chat_endpoint(request: ChatRequest):
         # Grab the orchestrator from app state and orchestrate chat message
         orchestrator = app.state.orchestrator
         # pass in message and history
-        responses = await orchestrate_chat(request.message, request.history, orchestrator, chat_id=0)
-        return JSONResponse(content={"messages": responses}, status_code=200)
+        responses, need_more_info = await orchestrate_chat(request.message, request.history, orchestrator, chat_id=0)
+        print("[APP]: need_more_info:", need_more_info)
+        return JSONResponse(
+            content={
+                "messages": responses,
+                "need_more_info": need_more_info
+            }, status_code=200)
 
     except Exception as e:
         logging.error(f"Error in chat endpoint: {e}")
