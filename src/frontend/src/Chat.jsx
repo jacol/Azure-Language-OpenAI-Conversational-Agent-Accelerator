@@ -40,7 +40,8 @@ const Chat = () => {
                 "Accept": "application/json"
             },
             body: JSON.stringify({
-                message: formattedString,
+                message: userMessageContent,
+                history: lastTwoMessages,
             })
         }
     };
