@@ -16,6 +16,7 @@ from pydantic import BaseModel
 # Define the confidence threshold for CLU intent recognition
 confidence_threshold = float(os.environ.get("CLU_CONFIDENCE_THRESHOLD", "0.5"))
 
+
 class ChatMessage(BaseModel):
     role: str
     content: str
@@ -309,6 +310,8 @@ class SemanticKernelOrchestrator:
             definition=translation_agent_definition,
             description="A translation agent that translates to English",
         )
+        # Set the translation agent for the orchestrator to handle fallback translations
+        self.translation_agent = translation_agent
 
         print("Agents initialized successfully.")
         print(f"Triage Agent ID: {triage_agent.id}")
@@ -362,18 +365,8 @@ class SemanticKernelOrchestrator:
 
                     final_response = json.loads(value.content)
 
-                    # if CQA
-                    if final_response.get("type") == "cqa_result":
-                        print("[SYSTEM]: Final CQA result received, terminating chat.")
-                        final_response = final_response['response']['answers'][0]['answer']
-                        print("[SYSTEM]: Final response is ", final_response)
-                        return final_response
-
-                    # if CLU
-                    else:
-                        print("[SYSTEM]: Final translated CLU result received, printing custom agent response...")
-                        print("[SYSTEM]: Final response is ", final_response['response']['final_answer'])
-                        return final_response['response']['final_answer']
+                    print("[SYSTEM]: Final response is ", final_response['response']['final_answer'])
+                    return final_response['response']['final_answer']
 
                 except Exception as e:
                     print(f"[EXCEPTION]: Orchestration failed with exception: {e}")
