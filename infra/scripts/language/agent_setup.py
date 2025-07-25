@@ -82,11 +82,11 @@ with agents_client:
             agents_client.delete_agent(agent.id)
 
     # 1) Create the triage agent which can use CLU or CQA tools to answer questions or extract intent
-    clu_api_tool, cqa_api_tool = create_tools(config)
+    clu_api_tool, cqa_api_tool, translation_api_tool = create_tools(config)
     TRIAGE_AGENT_NAME = "TriageAgent"
     TRIAGE_AGENT_INSTRUCTIONS = """
     You are a triage agent. Your goal is to understand customer intent and redirect messages accordingly. You are required to use ONE of the OpenAPI tools provided. You have at your disposition 2 tools but can only use ONE:
-            1. cqa_api: to answer general FAQs and procedural questions that do NOT depend on a customer-specific context (e.g. “What's the return policy?”, “What are your store hours?”).
+            1. **cqa_api**: to answer general FAQs and procedural questions that do NOT depend on a customer-specific context (e.g. “What's the return policy?”, “What are your store hours?”).
             2. **clu_api**: to extract customer-specific intent or order-specific intent ("What is the status of order 1234" or "I want to cancel order 12345")
     ---
     Input Format:
@@ -280,6 +280,7 @@ with agents_client:
         model=MODEL_NAME,
         name=TRANSLATION_AGENT_NAME,
         instructions=TRANSLATION_AGENT_INSTRUCTIONS,
+        tools=translation_api_tool.definitions,
     )
 
     # Output the agent IDs in a JSON format to be captured as env variables
