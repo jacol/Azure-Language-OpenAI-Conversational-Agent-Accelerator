@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 # Define the confidence threshold for CLU intent recognition
 confidence_threshold = float(os.environ.get("CLU_CONFIDENCE_THRESHOLD", "0.5"))
-
+cqa_confidence = float(os.environ.get("CQA_CONFIDENCE", "0.5"))
 
 class ChatMessage(BaseModel):
     role: str
@@ -57,17 +57,22 @@ def route_triage_message(last_message: ChatMessageContent, participant_descripti
         parsed = json.loads(last_message.content)
         # Handle CQA results
         if parsed.get("type") == "cqa_result":
-            print("[SYSTEM]: CQA result received, translating final response...")
-            return StringResult(
-                result=next((agent for agent in participant_descriptions.keys() if agent == "TranslationAgent"), None),
-                reason="Routing to TranslationAgent for final translation."
-            )
+            print("[SYSTEM]: CQA result received, checking confidence...")
+            confidence = parsed["response"]["answers"][0]["confidenceScore"]
+
+            if confidence >= cqa_confidence:
+                return StringResult(
+                    result=next((agent for agent in participant_descriptions.keys() if agent == "TranslationAgent"), None),
+                    reason="Routing to TranslationAgent for final translation."
+                )
+            else:
+                raise ValueError(f"[TriageAgent] CQA result returned low confidence score: {confidence}. Expected at least {cqa_confidence}.")
 
         # Handle CLU results
         if parsed.get("type") == "clu_result":
-            print("[SYSTEM]: CLU result received, checking intent, entities, and confidence...")
+            print("[SYSTEM]: CLU result received, checking intent and entities...")
             intent = parsed["response"]["result"]["conversations"][0]["intents"][0]["name"]
-            print("[TriageAgent]: Detected Intent:", intent, "routing to HeadSupportAgent for custom agent selection...")
+            print("[TriageAgent]: detected intent ", intent, ", routing to HeadSupportAgent for custom agent selection...")
             return StringResult(
                 result=next((agent for agent in participant_descriptions.keys() if agent == "HeadSupportAgent"), None),
                 reason="Routing to HeadSupportAgent for custom agent selection."
@@ -99,6 +104,7 @@ def route_head_support_message(last_message: ChatMessageContent, participant_des
             result=None,
             reason="Error processing HeadSupportAgent message."
         )
+
 
 def route_custom_agent_message(last_message: ChatMessageContent, participant_descriptions: dict) -> StringResult:
     try:
@@ -208,29 +214,6 @@ class CustomGroupChatManager(GroupChatManager):
             result=False,
             reason="No termination flags found in last message."
         )
-
-        # Check if the last message contains termination or need_more_info flags
-        # try:
-        #     parsed_content = json.loads(last_message.content)
-        #     terminated = parsed_content.get("terminated") == "True"
-        #     need_more_info = parsed_content.get("need_more_info") == "True"
-
-        #     if terminated or need_more_info:
-        #         return BooleanResult(
-        #             result=True,
-        #             reason="Chat terminated due to agent response."
-        #         )
-        # except json.JSONDecodeError:
-        #     return BooleanResult(
-        #         result=False,
-        #         reason="Failed to parse last message content."
-        #     )
-
-        # # Default case: no termination
-        # return BooleanResult(
-        #     result=False,
-        #     reason="No termination flags found in last message."
-        # )
 
 
 # Custom multi-agent semantic kernel orchestrator
