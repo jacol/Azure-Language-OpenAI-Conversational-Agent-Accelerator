@@ -61,8 +61,6 @@ const Chat = () => {
             const { messages, needMoreInfo } = parseSystemResponse(systemResponse);
 
             console.log("System messages:", messages);
-            console.log("Need more info?", needMoreInfo);
-
             setNeedMoreInfo(needMoreInfo);
 
             return { messages };
@@ -79,7 +77,6 @@ const Chat = () => {
 
         setIsTyping(true);
         const { messages: systemMessages } = await chatWithSystem(userMessageContent);
-
         setIsTyping(false);
 
         for (const msg of systemMessages) {

@@ -11,18 +11,18 @@ import json
 import asyncio
 from semantic_kernel.agents import AzureAIAgent, GroupChatOrchestration, GroupChatManager, BooleanResult, StringResult, MessageResult
 from semantic_kernel.agents.runtime import InProcessRuntime
-from agents.order_status_plugin import OrderStatusPlugin
-from agents.order_refund_plugin import OrderRefundPlugin
-from agents.order_cancel_plugin import OrderCancellationPlugin
+from semantic_kernel.functions import kernel_function
 from semantic_kernel.contents import AuthorRole, ChatMessageContent, ChatHistory
 from azure.identity.aio import DefaultAzureCredential
 
 from dotenv import load_dotenv
 load_dotenv()
 
+
 # Environment variables
 PROJECT_ENDPOINT = os.environ.get("AGENTS_PROJECT_ENDPOINT")
 MODEL_NAME = os.environ.get("AOAI_DEPLOYMENT")
+
 
 # Comment out for local testing:
 AGENT_IDS = {
@@ -38,6 +38,33 @@ AGENT_IDS = {
 
 # Define the confidence threshold for CLU intent recognition
 confidence_threshold = float(os.environ.get("CLU_CONFIDENCE_THRESHOLD", "0.5"))
+
+
+# Agent plugins
+class OrderCancellationPlugin:
+    @kernel_function
+    def process_cancellation(self, order_id: str) -> str:
+        """Process a cancellation for an order."""
+        # Simulate processing a cancellation
+        print(f"[CancellationPlugin] Processing cancellation for order {order_id}")
+        return f"Cancellation for order {order_id} has been processed successfully."
+
+
+class OrderRefundPlugin:
+    @kernel_function
+    def process_refund(self, order_id: str) -> str:
+        """Process a refund for an order."""
+        # Simulate processing a refund
+        print(f"[RefundPlugin] Processing refund for order {order_id}")
+        return f"Refund for order {order_id} has been processed successfully."
+
+
+class OrderStatusPlugin:
+    @kernel_function
+    def check_order_status(self, order_id: str) -> str:
+        """Check the status of an order."""
+        print(f"[OrderStatusPlugin] Checking status for order {order_id}")
+        return f"Order {order_id} is shipped and will arrive in 2-3 days."
 
 
 class CustomGroupChatManager(GroupChatManager):
@@ -257,28 +284,15 @@ async def main():
                 description="Translates into English",
             )
 
-            customer_translate_agent_definition = await client.agents.get_agent(AGENT_IDS["CUSTOMER_TRANSLATE_AGENT_ID"])
-            customer_translate_agent = AzureAIAgent(
-                client=client,
-                definition=customer_translate_agent_definition,
-                description="Translates from English into the customer language",
-            )
-
-            single_translate_agent_definition = await client.agents.get_agent(os.environ.get("SINGLE_TRANSLATE_AGENT_ID"))
-            single_translate_agent = AzureAIAgent(
-                client=client,
-                definition=single_translate_agent_definition,
-                description="Translates different languages",
-            )
-
             print("Agents initialized successfully.")
             print(f"Triage Agent ID: {triage_agent.id}")
             print(f"Head Support Agent ID: {head_support_agent.id}")
             print(f"Order Status Agent ID: {order_status_agent.id}")
             print(f"Order Cancel Agent ID: {order_cancel_agent.id}")
             print(f"Order Refund Agent ID: {order_refund_agent.id}")
+            print(f"Translation Agent ID: {translation_agent.id}")
 
-            created_agents = [translation_agent, triage_agent, head_support_agent, order_status_agent, order_cancel_agent, order_refund_agent, customer_translate_agent, single_translate_agent]
+            created_agents = [translation_agent, triage_agent, head_support_agent, order_status_agent, order_cancel_agent, order_refund_agent]
 
             orchestration = GroupChatOrchestration(
                 members=created_agents,
@@ -336,4 +350,4 @@ def format_agent_response(response):
 
 if __name__ == "__main__":
     asyncio.run(main())
-    print("Agent setup completed successfully.")
+    print("Agent orchestration completed successfully.")
