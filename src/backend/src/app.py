@@ -23,6 +23,7 @@ from typing import List
 # from dotenv import load_dotenv
 # load_dotenv()
 
+
 class ChatMessage(BaseModel):
     role: str
     content: str
@@ -130,10 +131,11 @@ def fallback_function(
 
 # Function to handle processing and orchestrating a chat message with utterance extraction, fallback handling, and PII redaction
 async def orchestrate_chat(
-    message: str, 
+    message: str,
     history: list[ChatMessage],
     orchestrator: SemanticKernelOrchestrator,
-    chat_id: int) -> tuple[list[str], bool]:
+    chat_id: int
+) -> tuple[list[str], bool]:
 
     responses = []
     need_more_info = False
@@ -224,6 +226,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app with lifespan
 app = FastAPI(lifespan=lifespan)
 app.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), name="assets")
+
 
 # In order to test uvicorn app locally:
 # 1) run `npm run build` in the frontend directory to generate the static files

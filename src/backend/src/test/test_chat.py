@@ -327,6 +327,7 @@ def test_single_turn(uvicorn_server: str, test_case: dict):
         f"Expected: {test_case['expected_response']}, Actual: {data['messages']}"
     )
 
+
 # Test the chat endpoint with a multi-turn conversation
 @pytest.mark.parametrize("test_case", MULTI_TURN_TEST_CASES, ids=lambda x: x["name"])
 def test_multi_turn(uvicorn_server: str, test_case: dict):

@@ -88,7 +88,7 @@ class CustomGroupChatManager(GroupChatManager):
                         result=None,
                         reason=f"Error routing to TranslationAgent: {e}"
                     )
-        
+
         elif last_message.name == "TranslationAgent":
             try:
                 parsed = json.loads(last_message.content)
@@ -156,7 +156,7 @@ class CustomGroupChatManager(GroupChatManager):
                     result=None,
                     reason="Error processing HeadSupportAgent message."
                 )
-        
+
         elif last_message.name in ["OrderStatusAgent", "OrderCancelAgent", "OrderRefundAgent"]:
             print(f"[SYSTEM]: Last message is from {last_message.name}, returning to TranslationAgent for final routing.")
             try:
@@ -200,36 +200,6 @@ class CustomGroupChatManager(GroupChatManager):
             result=False,
             reason="No termination flags found in last message."
         )
-        
-
-        # Check if the last message contains termination or need_more_info flags
-        # try:
-        #     parsed_content = json.loads(last_message.content)
-        #     terminated = parsed_content.get("terminated") == "True"
-        #     need_more_info = parsed_content.get("need_more_info") == "True"
-
-        #     if terminated or need_more_info:
-        #         return BooleanResult(
-        #             result=True,
-        #             reason="Chat terminated due to agent response."
-        #         )
-        # except json.JSONDecodeError:
-        #     return BooleanResult(
-        #         result=False,
-        #         reason="Failed to parse last message content."
-        #     )
-
-        # # Default case: no termination
-        # return BooleanResult(
-        #     result=False,
-        #     reason="No termination flags found in last message."
-        # )
-
-
-async def human_response_function(chat_histoy: ChatHistory) -> ChatMessageContent:
-    """Function to get user input."""
-    user_input = input("User: ")
-    return ChatMessageContent(role=AuthorRole.USER, content=user_input)
 
 
 def agent_response_callback(message: ChatMessageContent) -> None:
@@ -312,9 +282,7 @@ async def main():
 
             orchestration = GroupChatOrchestration(
                 members=created_agents,
-                manager=CustomGroupChatManager(
-                    human_response_function=human_response_function,
-                ),
+                manager=CustomGroupChatManager(),
             )
 
             for attempt in range(1, 3):
@@ -323,9 +291,9 @@ async def main():
                 runtime.start()
 
                 try:
-                    task_json = {  
-                        "query": "الطلب 923847، المستخدم - عايز أسترجع طلب، النظام - من فضلك اشرح لي أكتر عن الطلب بتاعك عشان أقدر أساعدك بشكل أفضل.",       
-                        "to": "english"  
+                    task_json = {
+                        "query": "quiero cancelar mi pedido 12345",
+                        "to": "english"
                     }
                     task_string = json.dumps(task_json)
                     print(task_string)

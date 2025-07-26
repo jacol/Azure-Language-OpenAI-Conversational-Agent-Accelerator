@@ -17,9 +17,11 @@ from pydantic import BaseModel
 confidence_threshold = float(os.environ.get("CLU_CONFIDENCE_THRESHOLD", "0.5"))
 cqa_confidence = float(os.environ.get("CQA_CONFIDENCE", "0.5"))
 
+
 class ChatMessage(BaseModel):
     role: str
     content: str
+
 
 # Custom functions to route messages from specific roles / agents
 def route_user_message(participant_descriptions: dict) -> StringResult:
@@ -33,7 +35,7 @@ def route_user_message(participant_descriptions: dict) -> StringResult:
             result=None,
             reason=f"Error routing to TranslationAgent: {e}"
         )
-    
+
 
 def route_translation_message(last_message: ChatMessageContent, participant_descriptions: dict) -> StringResult:
     try:
@@ -122,6 +124,7 @@ def route_custom_agent_message(last_message: ChatMessageContent, participant_des
             reason="Error processing custom agent message."
         )
 
+
 class CustomGroupChatManager(GroupChatManager):
     """
     Custom group chat manager for Semantic Kernel Group Chat Orchestration.
@@ -160,7 +163,7 @@ class CustomGroupChatManager(GroupChatManager):
         if not last_message or last_message.role == AuthorRole.USER:
             print("[SYSTEM]: Last message is from the USER, routing to TranslationAgent for initial translation...")
             return route_user_message(participant_descriptions)
-        
+
         elif last_message.name == "TranslationAgent":
             print("[SYSTEM]: Last message is from TranslationAgent, routing to TriageAgent for message translation...")
             return route_translation_message(last_message, participant_descriptions)
@@ -174,7 +177,7 @@ class CustomGroupChatManager(GroupChatManager):
         elif last_message.name == "HeadSupportAgent":
             print("[SYSTEM]: Last message is from HeadSupportAgent, choosing custom agent...")
             return route_head_support_message(last_message, participant_descriptions)
-        
+
         # Process custom agent messages - customize as needed
         elif last_message.name in ["OrderStatusAgent", "OrderRefundAgent", "OrderCancelAgent"]:
             print(f"[SYSTEM]: Last message is from {last_message.name}, translate back to original language if needed.")
@@ -200,7 +203,7 @@ class CustomGroupChatManager(GroupChatManager):
                 result=False,
                 reason="No messages in chat history."
             )
-        
+
         # Check if message is from the translation agent and is not the initial translation
         if last_message.name == "TranslationAgent" and len(chat_history) > 3:
             print(last_message.name)
