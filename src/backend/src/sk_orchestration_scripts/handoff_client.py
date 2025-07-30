@@ -4,15 +4,16 @@
 """
 This script is a local script to interact with the HandoffOrchestration class within the Semantic Kernel framework.
 It initializes agents, sets up handoffs, and runs an orchestration task.
+Run by using the vscode configuration "Python: Run handoff_client.py as module".
 """
 
 import os
 import asyncio
 from semantic_kernel.agents import AzureAIAgent, OrchestrationHandoffs, HandoffOrchestration
 from semantic_kernel.agents.runtime import InProcessRuntime
-from agents.order_status_plugin import OrderStatusPlugin
-from agents.order_refund_plugin import OrderRefundPlugin
 from agents.order_cancel_plugin import OrderCancellationPlugin
+from agents.order_refund_plugin import OrderRefundPlugin
+from agents.order_status_plugin import OrderStatusPlugin
 from semantic_kernel.contents import AuthorRole, ChatMessageContent
 from azure.identity.aio import DefaultAzureCredential
 from dotenv import load_dotenv
